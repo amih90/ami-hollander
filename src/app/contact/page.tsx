@@ -1,0 +1,142 @@
+import type { Metadata } from "next";
+import GradientText from "@/components/GlitchText";
+import { social } from "@/data/social";
+import { FaGithub, FaLinkedin, FaEnvelope } from "react-icons/fa";
+
+export const metadata: Metadata = {
+  title: "Contact",
+  description:
+    "Get in touch with Ami Hollander — book a coffee chat, connect on LinkedIn, or send a message.",
+};
+
+export default function ContactPage() {
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-16">
+      {/* Header */}
+      <div className="mb-12">
+        <GradientText
+          text="Get In Touch"
+          className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
+        />
+        <p className="font-[family-name:var(--font-body)] text-lg text-[rgba(240,239,244,0.55)] max-w-2xl">
+          Whether you want to discuss a project, explore opportunities, or just
+          grab a virtual coffee — I&apos;m always happy to connect.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-8">
+        {/* Calendly Section */}
+        <div className="glass-card p-6">
+          <h2 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-[var(--color-gold)] mb-4">
+            Book a Coffee ☕
+          </h2>
+          <p className="font-[family-name:var(--font-body)] text-base text-[rgba(240,239,244,0.5)] mb-6">
+            Schedule a 30-minute coffee chat. Let&apos;s talk tech, career, open
+            source, or anything else on your mind.
+          </p>
+          <a
+            href={social.calendly}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-[family-name:var(--font-heading)] text-sm font-semibold px-5 py-2.5 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] text-[#06060e] hover:shadow-[0_0_20px_rgba(201,168,76,0.3)] transition-all inline-block"
+          >
+            Open Calendar
+          </a>
+        </div>
+
+        {/* Quick Links */}
+        <div className="glass-card p-6">
+          <h2 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-[var(--color-electric)] mb-6">
+            Connect Directly
+          </h2>
+
+          <div className="space-y-4">
+            {/* GitHub */}
+            <a
+              href={social.github}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-3 rounded-xl border border-[rgba(255,255,255,0.04)] hover:border-[rgba(201,168,76,0.2)] hover:bg-[rgba(201,168,76,0.04)] transition-all group"
+            >
+              <FaGithub className="text-2xl text-[rgba(240,239,244,0.3)] group-hover:text-[var(--color-gold)] transition-colors" />
+              <div>
+                <div className="font-[family-name:var(--font-body)] text-base text-[var(--color-foreground)] group-hover:text-[var(--color-gold)] transition-colors">
+                  GitHub
+                </div>
+                <div className="font-[family-name:var(--font-body)] text-xs text-[rgba(240,239,244,0.35)]">
+                  github.com/amih90
+                </div>
+              </div>
+            </a>
+
+            {/* LinkedIn */}
+            <a
+              href={social.linkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-3 rounded-xl border border-[rgba(255,255,255,0.04)] hover:border-[rgba(59,130,246,0.2)] hover:bg-[rgba(59,130,246,0.04)] transition-all group"
+            >
+              <FaLinkedin className="text-2xl text-[rgba(240,239,244,0.3)] group-hover:text-[var(--color-electric)] transition-colors" />
+              <div>
+                <div className="font-[family-name:var(--font-body)] text-base text-[var(--color-foreground)] group-hover:text-[var(--color-electric)] transition-colors">
+                  LinkedIn
+                </div>
+                <div className="font-[family-name:var(--font-body)] text-xs text-[rgba(240,239,244,0.35)]">
+                  linkedin.com/in/ami-hollander
+                </div>
+              </div>
+            </a>
+
+            {/* Email */}
+            <a
+              href={`mailto:${social.email}`}
+              className="flex items-center gap-4 p-3 rounded-xl border border-[rgba(255,255,255,0.04)] hover:border-[rgba(224,124,154,0.2)] hover:bg-[rgba(224,124,154,0.04)] transition-all group"
+            >
+              <FaEnvelope className="text-2xl text-[rgba(240,239,244,0.3)] group-hover:text-[var(--color-rose)] transition-colors" />
+              <div>
+                <div className="font-[family-name:var(--font-body)] text-base text-[var(--color-foreground)] group-hover:text-[var(--color-rose)] transition-colors">
+                  Email
+                </div>
+                <div className="font-[family-name:var(--font-body)] text-xs text-[rgba(240,239,244,0.35)]">
+                  {social.email}
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Recruiter CTA */}
+      <div className="glass-card p-8 mt-8 text-center">
+        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--color-violet)] mb-4">
+          Recruiters &amp; Engineering Leaders
+        </h2>
+        <p className="font-[family-name:var(--font-body)] text-lg text-[rgba(240,239,244,0.6)] mb-6 max-w-2xl mx-auto">
+          I&apos;m a Senior Software Engineer at Microsoft with deep expertise
+          in Azure, AI/ML, and developer tools. I&apos;m passionate about
+          building at scale, contributing to open source, and mentoring teams.
+          Let&apos;s connect over coffee and discuss how I can bring value to
+          your organization.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href={social.calendly}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-[family-name:var(--font-heading)] text-sm font-semibold px-6 py-3 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] text-[#06060e] hover:shadow-[0_0_20px_rgba(201,168,76,0.3)] transition-all"
+          >
+            Schedule a Chat
+          </a>
+          <a
+            href={social.linkedin}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-[family-name:var(--font-heading)] text-sm font-semibold px-6 py-3 rounded-full border border-[var(--color-electric)] text-[var(--color-electric)] hover:bg-[rgba(59,130,246,0.08)] transition-all"
+          >
+            Connect on LinkedIn
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}

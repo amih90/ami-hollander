@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #06060e;
+  --color-background-alt: #0e0e1a;
+  --color-foreground: #f0eff4;
+  --color-gold: #c9a84c;
+  --color-champagne: #e8d5b0;
+  --color-rose: #e07c9a;
+  --color-silver: #9ca3af;
+  --color-electric: #3b82f6;
+  --color-coral: #f97066;
+  --color-cream: #f5f0e8;
+  --color-mint: #6ee7b7;
+  --color-violet: #a78bfa;
+  --color-panel: rgba(255, 255, 255, 0.04);
+  --color-panel-border: rgba(201, 168, 76, 0.12);
+  --color-panel-hover: rgba(255, 255, 255, 0.08);
+  --font-heading: "Space Grotesk", sans-serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #06060e;
+  color: #f0eff4;
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+/* Glossy magazine card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(201, 168, 76, 0.1);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(16px);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(201, 168, 76, 0.25);
+  box-shadow:
+    0 8px 40px rgba(201, 168, 76, 0.06),
+    0 0 0 1px rgba(201, 168, 76, 0.08) inset;
+  transform: translateY(-3px);
+}
+
+/* Skill bar */
+.skill-bar-fill {
+  border-radius: 9999px;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shimmer / shine animation */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes shine-sweep {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #06060e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-gold), var(--color-rose));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-champagne), var(--color-gold));
+}
+
+/* Selection */
+::selection {
+  background: rgba(201, 168, 76, 0.3);
+  color: #f0eff4;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card:hover {
+    transform: none;
+  }
+  .skill-bar-fill {
+    transition: none;
+  }
+}
+
+/* Magazine prose styling */
+.prose-warm {
+  color: #f0eff4;
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  line-height: 1.85;
+}
+
+.prose-warm h1,
+.prose-warm h2,
+.prose-warm h3 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--color-gold);
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.prose-warm h1 { font-size: 2rem; }
+.prose-warm h2 { font-size: 1.5rem; }
+.prose-warm h3 { font-size: 1.25rem; }
+
+.prose-warm p {
+  margin-bottom: 1.25rem;
+}
+
+.prose-warm a {
+  color: var(--color-electric);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-warm a:hover {
+  color: var(--color-gold);
+}
+
+.prose-warm code {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-gold);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.prose-warm pre {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(201, 168, 76, 0.1);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+
+.prose-warm pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.prose-warm ul,
+.prose-warm ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.prose-warm li {
+  margin-bottom: 0.5rem;
+}
+
+.prose-warm li::marker {
+  color: var(--color-gold);
+}
+
+.prose-warm blockquote {
+  border-left: 3px solid var(--color-gold);
+  padding-left: 1rem;
+  color: rgba(240, 239, 244, 0.7);
+  margin: 1.5rem 0;
+}
+
+.prose-warm hr {
+  border-color: rgba(201, 168, 76, 0.1);
+  margin: 2rem 0;
+}
+
+.prose-warm img {
+  border: 1px solid rgba(201, 168, 76, 0.1);
+  border-radius: 0.75rem;
+  max-width: 100%;
+}
