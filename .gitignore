@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local serve
+/_serve/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
