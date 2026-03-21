@@ -105,37 +105,6 @@ export default function ContactPage() {
         <ContactForm />
       </div>
 
-      {/* Recruiter CTA */}
-      <div className="glass-card p-8 mt-8 text-center">
-        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--color-violet)] mb-4">
-          Recruiters &amp; Engineering Leaders
-        </h2>
-        <p className="font-[family-name:var(--font-body)] text-lg text-[rgba(240,239,244,0.6)] mb-6 max-w-2xl mx-auto">
-          I&apos;m a Senior Software Engineer at Microsoft with deep expertise
-          in Azure, AI/ML, and developer tools. I&apos;m passionate about
-          building at scale, contributing to open source, and mentoring teams.
-          Let&apos;s connect over coffee and discuss how I can bring value to
-          your organization.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href={social.calendly}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-[family-name:var(--font-heading)] text-sm font-semibold px-6 py-3 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] text-[#06060e] hover:shadow-[0_0_20px_rgba(201,168,76,0.3)] transition-all"
-          >
-            Schedule a Chat
-          </a>
-          <a
-            href={social.linkedin}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-[family-name:var(--font-heading)] text-sm font-semibold px-6 py-3 rounded-full border border-[var(--color-electric)] text-[var(--color-electric)] hover:bg-[rgba(59,130,246,0.08)] transition-all"
-          >
-            Connect on LinkedIn
-          </a>
-        </div>
-      </div>
     </div>
   );
 }

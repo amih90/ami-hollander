@@ -7,11 +7,8 @@ import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent }
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/experience", label: "Journey" },
-  { href: "/projects", label: "Projects" },
-  { href: "/opensource", label: "Open Source" },
-  { href: "/blog", label: "Blog" },
+  { href: "/work", label: "Work" },
+  { href: "/blog", label: "Writing" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -41,7 +38,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link
             href="/"
-            className="font-[family-name:var(--font-heading)] text-lg font-bold bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+            className="font-[family-name:var(--font-heading)] text-lg font-bold bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] bg-clip-text text-transparent hover:opacity-80 transition-opacity flex items-center gap-2"
           >
             <motion.span
               initial={{ opacity: 0, x: -10 }}
@@ -50,6 +47,10 @@ export default function Navbar() {
             >
               Ami Hollander
             </motion.span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
           </Link>
 
           {/* Desktop Nav */}

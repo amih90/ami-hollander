@@ -6,9 +6,9 @@ import { format } from "date-fns";
 import BlogPostList from "./BlogPostList";
 
 export const metadata: Metadata = {
-  title: "Blog",
+  title: "Writing",
   description:
-    "Ami Hollander's blog — thoughts on cloud, AI, dev tools, and open source.",
+    "Ami Hollander's writing — thoughts on cloud, AI, dev tools, and open source.",
 };
 
 export default function BlogPage() {
@@ -19,7 +19,7 @@ export default function BlogPage() {
       {/* Header */}
       <div className="mb-12">
         <GradientText
-          text="Blog"
+          text="Writing"
           shimmer
           className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
         />

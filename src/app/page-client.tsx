@@ -9,7 +9,16 @@ import ScrollReveal, { staggerContainer, staggerItem } from "@/components/Scroll
 import AnimatedCounter from "@/components/AnimatedCounter";
 import MagneticButton from "@/components/MagneticButton";
 import FloatingShapes from "@/components/FloatingShapes";
+import TypewriterText from "@/components/TypewriterText";
 import bgMagazine from "../../public/images/bg-magazine.svg";
+
+const identities = [
+  "Senior Software Engineer",
+  "Cloud Native Builder",
+  "Open Source Contributor",
+  "AI & MCP Developer",
+  "Dev Containers Educator",
+];
 
 const stats = [
   { label: "Repos", value: "66", color: "var(--color-gold)" },
@@ -37,6 +46,17 @@ const highlights = [
       'Creator of "Mastering Dev Containers" — hands-on training adopted by engineering teams globally.',
     color: "var(--color-violet)",
   },
+];
+
+const skillHighlights = [
+  { name: "Azure", category: "Cloud" },
+  { name: "TypeScript", category: "Lang" },
+  { name: "Python", category: "Lang" },
+  { name: "Kubernetes", category: "Infra" },
+  { name: "AI / LLMs", category: "AI" },
+  { name: "MCP Servers", category: "AI" },
+  { name: "Dev Containers", category: "DX" },
+  { name: "C# / .NET", category: "Lang" },
 ];
 
 export default function HomePage() {
@@ -80,16 +100,6 @@ export default function HomePage() {
           className="max-w-4xl mx-auto"
           style={{ y: textY, opacity: heroOpacity }}
         >
-          {/* Overline */}
-          <motion.p
-            className="font-[family-name:var(--font-heading)] text-sm tracking-[0.3em] uppercase text-[var(--color-gold)] mb-6"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.6 }}
-          >
-            Issue No. 1 &mdash; Portfolio Edition
-          </motion.p>
-
           {/* Name — letter reveal + shimmer */}
           <GradientText
             text="Ami Hollander"
@@ -98,15 +108,10 @@ export default function HomePage() {
             className="font-[family-name:var(--font-heading)] text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 tracking-tight"
           />
 
-          {/* Title */}
-          <motion.p
-            className="font-[family-name:var(--font-body)] text-xl md:text-2xl text-[var(--color-silver)] mb-4 tracking-wide"
-            initial={{ opacity: 0, filter: "blur(8px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            transition={{ delay: 0.8, duration: 0.8 }}
-          >
-            Senior Software Engineer @ Microsoft
-          </motion.p>
+          {/* Typewriter rotating identities */}
+          <div className="font-[family-name:var(--font-body)] text-xl md:text-2xl text-[var(--color-silver)] mb-4 tracking-wide h-[1.8em]">
+            <TypewriterText words={identities} />
+          </div>
 
           {/* Sub-tagline */}
           <motion.p
@@ -128,16 +133,16 @@ export default function HomePage() {
             transition={{ delay: 1.2, duration: 0.5 }}
           >
             <MagneticButton
-              href="/projects"
+              href="/work"
               className="font-[family-name:var(--font-heading)] text-sm font-semibold px-8 py-3.5 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] text-[#06060e] hover:shadow-[0_0_30px_rgba(201,168,76,0.3)] transition-all inline-block"
             >
-              View Projects
+              View Work
             </MagneticButton>
             <MagneticButton
               href="/blog"
               className="font-[family-name:var(--font-heading)] text-sm font-semibold px-8 py-3.5 rounded-full border border-[rgba(240,239,244,0.2)] text-[var(--color-foreground)] hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-all inline-block"
             >
-              Read Blog
+              Read Writing
             </MagneticButton>
             <MagneticButton
               href="/contact"
@@ -218,6 +223,56 @@ export default function HomePage() {
             </motion.div>
           ))}
         </motion.div>
+      </section>
+
+      {/* Now Section — merged from About */}
+      <section className="max-w-6xl mx-auto px-4 pb-20">
+        <ScrollReveal>
+          <GradientText
+            text="Now"
+            shimmer
+            className="font-[family-name:var(--font-heading)] text-2xl md:text-3xl font-bold mb-8"
+          />
+        </ScrollReveal>
+
+        <div className="grid md:grid-cols-5 gap-8 mb-10">
+          <ScrollReveal direction="left" className="md:col-span-3">
+            <p className="font-[family-name:var(--font-body)] text-lg text-[var(--color-foreground)] mb-4 leading-relaxed">
+              Senior Software Engineer at{" "}
+              <span className="text-[var(--color-electric)]">Microsoft</span>,
+              building developer tools and cloud platform services that empower
+              millions of engineers worldwide.
+            </p>
+            <p className="font-[family-name:var(--font-body)] text-base text-[rgba(240,239,244,0.6)] leading-relaxed">
+              I specialize in cloud-native architectures on Azure, AI-powered
+              developer experiences, and creating open-source educational content.
+              When I&apos;m not shipping code, I&apos;m building hands-on training courses
+              like{" "}
+              <span className="text-[var(--color-gold)]">
+                &quot;Mastering Dev Containers&quot;
+              </span>{" "}
+              and contributing to the Azure open-source ecosystem.
+            </p>
+          </ScrollReveal>
+
+          <ScrollReveal direction="right" className="md:col-span-2">
+            <div className="glass-card p-5">
+              <h3 className="font-[family-name:var(--font-heading)] text-sm font-semibold text-[var(--color-gold)] mb-4 uppercase tracking-wider">
+                Core Stack
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {skillHighlights.map((skill) => (
+                  <span
+                    key={skill.name}
+                    className="font-[family-name:var(--font-body)] text-sm px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.04)] text-[rgba(240,239,244,0.7)] border border-[rgba(255,255,255,0.06)]"
+                  >
+                    {skill.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
       </section>
     </div>
   );
