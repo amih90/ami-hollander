@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06060e"/>
+      <stop offset="100%" stop-color="#0d0d1a"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c9a84c"/>
+      <stop offset="100%" stop-color="#e8d5a3"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="50%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#e07c9a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.03" stroke="#c9a84c" stroke-width="0.5">
+    <line x1="0" y1="0" x2="0" y2="630"/><line x1="60" y1="0" x2="60" y2="630"/>
+    <line x1="120" y1="0" x2="120" y2="630"/><line x1="180" y1="0" x2="180" y2="630"/>
+    <line x1="240" y1="0" x2="240" y2="630"/><line x1="300" y1="0" x2="300" y2="630"/>
+    <line x1="360" y1="0" x2="360" y2="630"/><line x1="420" y1="0" x2="420" y2="630"/>
+    <line x1="480" y1="0" x2="480" y2="630"/><line x1="540" y1="0" x2="540" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/><line x1="660" y1="0" x2="660" y2="630"/>
+    <line x1="720" y1="0" x2="720" y2="630"/><line x1="780" y1="0" x2="780" y2="630"/>
+    <line x1="840" y1="0" x2="840" y2="630"/><line x1="900" y1="0" x2="900" y2="630"/>
+    <line x1="960" y1="0" x2="960" y2="630"/><line x1="1020" y1="0" x2="1020" y2="630"/>
+    <line x1="1080" y1="0" x2="1080" y2="630"/><line x1="1140" y1="0" x2="1140" y2="630"/>
+    <line x1="0" y1="0" x2="1200" y2="0"/><line x1="0" y1="60" x2="1200" y2="60"/>
+    <line x1="0" y1="120" x2="1200" y2="120"/><line x1="0" y1="180" x2="1200" y2="180"/>
+    <line x1="0" y1="240" x2="1200" y2="240"/><line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="360" x2="1200" y2="360"/><line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="0" y1="480" x2="1200" y2="480"/><line x1="0" y1="540" x2="1200" y2="540"/>
+    <line x1="0" y1="600" x2="1200" y2="600"/>
+  </g>
+
+  <!-- Decorative glow blobs -->
+  <circle cx="200" cy="500" r="200" fill="#c9a84c" opacity="0.04"/>
+  <circle cx="1000" cy="150" r="250" fill="#3b82f6" opacity="0.03"/>
+  <circle cx="900" cy="500" r="180" fill="#e07c9a" opacity="0.03"/>
+
+  <!-- Top accent line -->
+  <rect x="100" y="80" width="120" height="3" fill="url(#gold)" rx="1.5"/>
+
+  <!-- Overline text -->
+  <text x="100" y="130" fill="#c9a84c" font-family="system-ui, -apple-system, sans-serif" font-size="16" letter-spacing="6" font-weight="500">PORTFOLIO</text>
+
+  <!-- Name -->
+  <text x="100" y="230" fill="url(#gold)" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" letter-spacing="-1">Ami Hollander</text>
+
+  <!-- Title -->
+  <text x="100" y="290" fill="#f0eff4" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400" opacity="0.7">Senior Software Engineer</text>
+
+  <!-- Company -->
+  <text x="100" y="340" fill="#3b82f6" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="500">Microsoft</text>
+
+  <!-- Divider -->
+  <rect x="100" y="380" width="1000" height="1" fill="#c9a84c" opacity="0.15"/>
+
+  <!-- Tags -->
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="400">
+    <rect x="100" y="410" width="80" height="32" rx="16" fill="#c9a84c" opacity="0.1" stroke="#c9a84c" stroke-opacity="0.2" stroke-width="1"/>
+    <text x="118" y="431" fill="#c9a84c" opacity="0.8">Azure</text>
+
+    <rect x="200" y="410" width="120" height="32" rx="16" fill="#3b82f6" opacity="0.08" stroke="#3b82f6" stroke-opacity="0.15" stroke-width="1"/>
+    <text x="216" y="431" fill="#3b82f6" opacity="0.8">TypeScript</text>
+
+    <rect x="340" y="410" width="90" height="32" rx="16" fill="#a78bfa" opacity="0.08" stroke="#a78bfa" stroke-opacity="0.15" stroke-width="1"/>
+    <text x="356" y="431" fill="#a78bfa" opacity="0.8">Python</text>
+
+    <rect x="450" y="410" width="130" height="32" rx="16" fill="#e07c9a" opacity="0.08" stroke="#e07c9a" stroke-opacity="0.15" stroke-width="1"/>
+    <text x="466" y="431" fill="#e07c9a" opacity="0.8">Open Source</text>
+
+    <rect x="600" y="410" width="110" height="32" rx="16" fill="#34d399" opacity="0.08" stroke="#34d399" stroke-opacity="0.15" stroke-width="1"/>
+    <text x="616" y="431" fill="#34d399" opacity="0.8">AI &amp; Agents</text>
+  </g>
+
+  <!-- Description -->
+  <text x="100" y="500" fill="#f0eff4" font-family="system-ui, -apple-system, sans-serif" font-size="18" opacity="0.45">Building cloud-native developer tools, AI-powered experiences,</text>
+  <text x="100" y="528" fill="#f0eff4" font-family="system-ui, -apple-system, sans-serif" font-size="18" opacity="0.45">and open-source projects at scale.</text>
+
+  <!-- Bottom border -->
+  <rect x="0" y="625" width="1200" height="5" fill="url(#accent)"/>
+</svg>

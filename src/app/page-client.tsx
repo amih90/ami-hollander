@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import GradientText from "@/components/GlitchText";
 import ScrollReveal from "@/components/ScrollReveal";
+import bgMagazine from "../../public/images/bg-magazine.svg";
 
 const stats = [
   { label: "Repos", value: "66", color: "var(--color-gold)" },
@@ -40,7 +41,7 @@ export default function HomePage() {
       {/* Magazine background image */}
       <div className="fixed inset-0 -z-10" aria-hidden="true">
         <Image
-          src="/images/bg-magazine.svg"
+          src={bgMagazine}
           alt=""
           fill
           className="object-cover"

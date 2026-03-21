@@ -12,5 +12,5 @@ export const siteConfig = {
   description:
     "Senior Software Engineer at Microsoft. Building cloud-native developer tools, AI-powered experiences, and open-source projects. Azure, TypeScript, Python, AI/ML.",
   url: "https://amihollander.dev",
-  ogImage: "/images/og-image.png",
+  ogImage: "/images/og-image.svg",
 };

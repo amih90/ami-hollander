@@ -5,6 +5,8 @@ import { getAllSlugs, getPostBySlug } from "@/lib/mdx";
 import { format } from "date-fns";
 import { remark } from "remark";
 import remarkHtml from "remark-html";
+import { JsonLdArticle } from "@/components/JsonLd";
+import { siteConfig } from "@/data/social";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -21,6 +23,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: post.title,
     description: post.excerpt,
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      type: "article",
+      publishedTime: post.date,
+      tags: post.tags,
+    },
   };
 }
 
@@ -35,6 +44,13 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
+      <JsonLdArticle
+        title={post.title}
+        datePublished={post.date}
+        description={post.excerpt}
+        authorName={siteConfig.name}
+        url={`${siteConfig.url}/ami-hollander/blog/${slug}`}
+      />
       {/* Back link */}
       <Link
         href="/blog"
