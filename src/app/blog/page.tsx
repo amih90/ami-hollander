@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllPosts } from "@/lib/mdx";
 import GradientText from "@/components/GlitchText";
-import WarmCard from "@/components/PixelCard";
 import { format } from "date-fns";
+import BlogPostList from "./BlogPostList";
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -20,6 +20,7 @@ export default function BlogPage() {
       <div className="mb-12">
         <GradientText
           text="Blog"
+          shimmer
           className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
         />
         <p className="font-[family-name:var(--font-body)] text-lg text-[rgba(240,239,244,0.5)]">
@@ -45,40 +46,14 @@ export default function BlogPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {posts.map((post) => (
-            <Link key={post.slug} href={`/blog/${post.slug}`} className="block">
-              <WarmCard>
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 mb-3">
-                  <h2 className="font-[family-name:var(--font-heading)] text-lg font-semibold text-[var(--color-foreground)] leading-relaxed">
-                    {post.title}
-                  </h2>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="font-[family-name:var(--font-body)] text-sm text-[var(--color-gold)]">
-                      {format(new Date(post.date), "MMM d, yyyy")}
-                    </span>
-                    <span className="font-[family-name:var(--font-body)] text-xs text-[rgba(240,239,244,0.35)]">
-                      {post.readingTime}
-                    </span>
-                  </div>
-                </div>
-                <p className="font-[family-name:var(--font-body)] text-base text-[rgba(240,239,244,0.5)] mb-3">
-                  {post.excerpt}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {post.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="font-[family-name:var(--font-body)] text-xs px-2.5 py-1 rounded-full bg-[rgba(59,130,246,0.08)] text-[var(--color-electric)] border border-[rgba(59,130,246,0.15)]"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              </WarmCard>
-            </Link>
-          ))}
-        </div>
+        <BlogPostList posts={posts.map(p => ({
+          slug: p.slug,
+          title: p.title,
+          date: format(new Date(p.date), "MMM d, yyyy"),
+          readingTime: p.readingTime,
+          excerpt: p.excerpt,
+          tags: p.tags,
+        }))} />
       )}
     </div>
   );

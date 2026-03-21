@@ -30,6 +30,7 @@ export default function AboutPage() {
       <div className="mb-12">
         <GradientText
           text="About Me"
+          shimmer
           className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
         />
       </div>

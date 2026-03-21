@@ -47,6 +47,7 @@ export default async function OpenSourcePage() {
       <div className="mb-12">
         <GradientText
           text="Open Source"
+          shimmer
           className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
         />
         <p className="font-[family-name:var(--font-body)] text-lg text-[rgba(240,239,244,0.5)]">

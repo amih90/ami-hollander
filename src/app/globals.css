@@ -88,6 +88,22 @@ body {
   50% { opacity: 0.8; }
 }
 
+@keyframes scroll-bounce {
+  0%, 100% { transform: translateY(0) translateX(-50%); }
+  50% { transform: translateY(8px) translateX(-50%); }
+}
+
+/* Shimmer text effect */
+.shimmer-text {
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Scroll indicator bounce */
+.scroll-indicator {
+  animation: scroll-bounce 2s ease-in-out infinite;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -119,6 +135,12 @@ body {
   }
   .skill-bar-fill {
     transition: none;
+  }
+  .shimmer-text {
+    animation: none;
+  }
+  .scroll-indicator {
+    animation: none;
   }
 }
 

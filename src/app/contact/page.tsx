@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import GradientText from "@/components/GlitchText";
 import { social } from "@/data/social";
-import { FaGithub, FaLinkedin, FaEnvelope } from "react-icons/fa";
+import { FaGithub, FaLinkedin } from "react-icons/fa";
+import ContactForm from "@/components/ContactForm";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -16,6 +17,7 @@ export default function ContactPage() {
       <div className="mb-12">
         <GradientText
           text="Get In Touch"
+          shimmer
           className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
         />
         <p className="font-[family-name:var(--font-body)] text-lg text-[rgba(240,239,244,0.55)] max-w-2xl">
@@ -87,23 +89,20 @@ export default function ContactPage() {
               </div>
             </a>
 
-            {/* Email */}
-            <a
-              href={`mailto:${social.email}`}
-              className="flex items-center gap-4 p-3 rounded-xl border border-[rgba(255,255,255,0.04)] hover:border-[rgba(224,124,154,0.2)] hover:bg-[rgba(224,124,154,0.04)] transition-all group"
-            >
-              <FaEnvelope className="text-2xl text-[rgba(240,239,244,0.3)] group-hover:text-[var(--color-rose)] transition-colors" />
-              <div>
-                <div className="font-[family-name:var(--font-body)] text-base text-[var(--color-foreground)] group-hover:text-[var(--color-rose)] transition-colors">
-                  Email
-                </div>
-                <div className="font-[family-name:var(--font-body)] text-xs text-[rgba(240,239,244,0.35)]">
-                  {social.email}
-                </div>
-              </div>
-            </a>
           </div>
         </div>
+      </div>
+
+      {/* Contact Form */}
+      <div className="glass-card p-6 mt-8">
+        <h2 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-[var(--color-rose)] mb-2">
+          Send a Message ✉️
+        </h2>
+        <p className="font-[family-name:var(--font-body)] text-sm text-[rgba(240,239,244,0.45)] mb-6">
+          Fill out the form and it&apos;ll open in your email client — no
+          email address exposed.
+        </p>
+        <ContactForm />
       </div>
 
       {/* Recruiter CTA */}

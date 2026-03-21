@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -17,9 +18,24 @@ const navLinks = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { scrollY } = useScroll();
+  const [scrolled, setScrolled] = useState(false);
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    setScrolled(latest > 20);
+  });
+
+  const bgOpacity = useTransform(scrollY, [0, 80], [0.6, 0.95]);
+  const borderOpacity = useTransform(scrollY, [0, 80], [0.04, 0.12]);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-40 bg-[rgba(6,6,14,0.8)] border-b border-[rgba(201,168,76,0.08)] backdrop-blur-2xl">
+    <motion.nav
+      className="fixed top-0 left-0 right-0 z-40 backdrop-blur-2xl"
+      style={{
+        backgroundColor: useTransform(bgOpacity, (v) => `rgba(6,6,14,${v})`),
+        borderBottom: useTransform(borderOpacity, (v) => `1px solid rgba(201,168,76,${v})`),
+      }}
+    >
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
@@ -27,24 +43,40 @@ export default function Navbar() {
             href="/"
             className="font-[family-name:var(--font-heading)] text-lg font-bold bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-champagne)] bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
-            Ami Hollander
+            <motion.span
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              Ami Hollander
+            </motion.span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`font-[family-name:var(--font-body)] text-sm px-3 py-1.5 rounded-lg transition-all ${
-                  pathname === link.href
-                    ? "text-[var(--color-gold)] bg-[rgba(201,168,76,0.1)]"
-                    : "text-[rgba(240,239,244,0.5)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.04)]"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`relative font-[family-name:var(--font-body)] text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                    isActive
+                      ? "text-[var(--color-gold)]"
+                      : "text-[rgba(240,239,244,0.5)] hover:text-[var(--color-foreground)]"
+                  }`}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-indicator"
+                      className="absolute inset-0 rounded-lg bg-[rgba(201,168,76,0.1)]"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{link.label}</span>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Mobile hamburger */}
@@ -64,26 +96,40 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Mobile menu */}
-        {open && (
-          <div className="md:hidden pb-4 border-t border-[rgba(201,168,76,0.08)]">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className={`block font-[family-name:var(--font-body)] text-base py-2.5 px-3 rounded-lg transition-all ${
-                  pathname === link.href
-                    ? "text-[var(--color-gold)] bg-[rgba(201,168,76,0.1)]"
-                    : "text-[rgba(240,239,244,0.5)] hover:text-[var(--color-foreground)]"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Mobile menu with AnimatePresence */}
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              className="md:hidden pb-4 border-t border-[rgba(201,168,76,0.08)] overflow-hidden"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            >
+              {navLinks.map((link, i) => (
+                <motion.div
+                  key={link.href}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05, duration: 0.3 }}
+                >
+                  <Link
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className={`block font-[family-name:var(--font-body)] text-base py-2.5 px-3 rounded-lg transition-all ${
+                      pathname === link.href
+                        ? "text-[var(--color-gold)] bg-[rgba(201,168,76,0.1)]"
+                        : "text-[rgba(240,239,244,0.5)] hover:text-[var(--color-foreground)]"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </nav>
+    </motion.nav>
   );
 }

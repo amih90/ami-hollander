@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { getTopRepos, getPublicRepos, getRepoStats, type GitHubRepo } from "@/lib/github";
 import { featuredProjects } from "@/data/projects";
 import GradientText from "@/components/GlitchText";
-import WarmCard from "@/components/PixelCard";
 import CategoryTag from "@/components/CategoryTag";
 import { FaStar, FaCodeBranch, FaExternalLinkAlt } from "react-icons/fa";
+import { AnimatedGrid, AnimatedCard } from "./ProjectsGrid";
 
 export const metadata: Metadata = {
   title: "Projects",
@@ -41,6 +41,7 @@ export default async function ProjectsPage() {
       <div className="mb-12">
         <GradientText
           text="Projects"
+          shimmer
           className="font-[family-name:var(--font-heading)] text-3xl md:text-5xl font-bold mb-6"
         />
 
@@ -61,13 +62,9 @@ export default async function ProjectsPage() {
       </div>
 
       {/* Featured Projects */}
-      <section className="mb-16">
-        <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-foreground)] mb-6">
-          Featured Projects
-        </h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <AnimatedGrid title="Featured Projects">
           {featuredProjects.map((project) => (
-            <WarmCard key={project.name}>
+            <AnimatedCard key={project.name}>
               <div className="flex flex-col h-full">
                 {/* Category tag */}
                 <div className="mb-3">
@@ -117,18 +114,13 @@ export default async function ProjectsPage() {
                   )}
                 </div>
               </div>
-            </WarmCard>
+            </AnimatedCard>
           ))}
-        </div>
-      </section>
+      </AnimatedGrid>
 
       {/* GitHub Repos */}
       {repos.length > 0 && (
-        <section>
-          <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-foreground)] mb-6">
-            Recent Repos
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatedGrid title="Recent Repos">
             {repos.map((repo) => (
               <a
                 key={repo.name}
@@ -137,7 +129,7 @@ export default async function ProjectsPage() {
                 rel="noopener noreferrer"
                 className="block"
               >
-                <WarmCard className="h-full">
+                <AnimatedCard>
                   <h3 className="font-[family-name:var(--font-heading)] text-sm font-semibold text-[var(--color-foreground)] mb-2 truncate">
                     {repo.fork ? "⑂ " : ""}{repo.name}
                   </h3>
@@ -168,11 +160,10 @@ export default async function ProjectsPage() {
                       </span>
                     )}
                   </div>
-                </WarmCard>
+                </AnimatedCard>
               </a>
             ))}
-          </div>
-        </section>
+          </AnimatedGrid>
       )}
     </div>
   );

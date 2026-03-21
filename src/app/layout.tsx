@@ -6,6 +6,8 @@ import Footer from "@/components/Footer";
 import { siteConfig, social } from "@/data/social";
 import { JsonLdPerson } from "@/components/JsonLd";
 import Analytics from "@/components/Analytics";
+import ScrollProgress from "@/components/ScrollProgress";
+import CursorGlow from "@/components/CursorGlow";
 
 const headingFont = Space_Grotesk({
   subsets: ["latin"],
@@ -59,7 +61,15 @@ export default function RootLayout({
       <body
         className={`${headingFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased bg-[#06060e] text-[#f0eff4]`}
       >
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--color-gold)] focus:text-[#06060e] focus:font-semibold focus:text-sm"
+        >
+          Skip to content
+        </a>
         <Analytics />
+        <ScrollProgress />
+        <CursorGlow />
         <JsonLdPerson
           name={siteConfig.name}
           jobTitle="Senior Software Engineer"
@@ -68,7 +78,7 @@ export default function RootLayout({
           sameAs={[social.github, social.linkedin]}
         />
         <Navbar />
-        <main className="pt-14 min-h-screen relative z-10">{children}</main>
+        <main id="main-content" className="pt-14 min-h-screen relative z-10">{children}</main>
         <Footer />
       </body>
     </html>
