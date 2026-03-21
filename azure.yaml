@@ -1,9 +1,0 @@
-name: ami-hollander
-metadata:
-  template: ami-hollander@0.0.1
-services:
-  web:
-    project: ./
-    language: js
-    host: staticwebapp
-    dist: .next

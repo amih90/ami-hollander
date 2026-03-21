@@ -29,7 +29,7 @@ export async function getPublicRepos(): Promise<GitHubRepo[]> {
   while (page <= 2) {
     const res = await fetch(
       `${GITHUB_API}/users/${USERNAME}/repos?per_page=${perPage}&page=${page}&sort=updated`,
-      { headers, next: { revalidate: 3600 } }
+      { headers }
     );
     if (!res.ok) break;
     const data = await res.json();
