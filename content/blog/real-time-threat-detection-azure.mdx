@@ -1,0 +1,377 @@
+---
+title: "Building a Real-Time Threat Detection Pipeline on Azure"
+date: "2026-03-18"
+tags: ["azure", "event-hubs", "azure-functions", "api-management", "cosmos-db", "security", "serverless", "event-driven"]
+excerpt: "We noticed strange IPs hitting our API at 3 AM. Instead of checking logs manually, we built an automated pipeline that catches threats in real time — using API Management, Event Hubs, Azure Functions, and VirusTotal."
+---
+
+# Building a Real-Time Threat Detection Pipeline on Azure
+
+```
+> ALERT: ANOMALOUS_TRAFFIC_DETECTED
+> SOURCE: API_GATEWAY
+> IPs_FLAGGED: 47
+> TIME_WINDOW: 03:00-04:30 UTC
+> ACTION: INVESTIGATING
+```
+
+It started with a Slack message at 8:07 AM.
+
+*"Hey, did anyone notice the API got 3,000 requests between 3 and 4 AM? All from IPs I've never seen before."*
+
+That was Noam, our SRE. He'd been scrolling through Application Insights over his morning coffee and spotted a spike — not a DDoS, just a slow, methodical crawl of every endpoint in our Todo API. Most of the IPs were residential proxies. Some were flagged in VirusTotal.
+
+We had monitoring. We had logs. What we didn't have was a system that could tell us *in real time* whether the traffic hitting our API was malicious — and do something about it automatically.
+
+This is the story of how we built that system, and how what started as a weekend project became the security backbone of our [Hands-on Azure Development](https://github.com/amih90/techtrain-handson-azure-development) workshop.
+
+## The Architecture Before
+
+Our Todo application was simple: a React frontend calling a .NET API, backed by Cosmos DB. No gateway. No event processing. Every request went straight to the API.
+
+![The architecture before API Management — direct access to the API](/ami-hollander/images/blog/handson-azure/architecture-without-apim.png)
+
+If someone was scanning our endpoints, we'd find out the next morning — by reading logs.
+
+## Step 1: Put a Gate in Front of Your API
+
+The first fix was the easiest. We added Azure API Management (APIM) as a gateway in front of our API. Two changes:
+
+**1. Enable APIM in our infrastructure:**
+```bash
+azd env set USE_APIM true
+azd provision
+```
+
+**2. The Bicep already existed** — we just needed to flip the flag in `main.parameters.json`:
+```json
+{
+  "useAPIM": {
+    "value": "true"
+  }
+}
+```
+
+After provisioning, our requests now flowed through APIM instead of hitting the API directly.
+
+![Architecture with API Management — every request goes through the gateway](/ami-hollander/images/blog/handson-azure/architecture-with-apim.png)
+
+APIM gave us immediate benefits:
+- **CORS policies** enforced at the gateway level
+- **Content validation** before requests reach the API
+- **Rate limiting** to slow down abusive clients
+- **Centralized logging** through Application Insights integration
+
+![Resources provisioned with API Management enabled](/ami-hollander/images/blog/handson-azure/resources-with-apim.png)
+
+But Noam wanted more than logs. He wanted alerts. In real time. With automated analysis.
+
+## Step 2: Stream Every Request to Event Hubs
+
+APIM can do more than route traffic — it can emit events. We configured a logger that sends metadata about every API request to Azure Event Hubs:
+
+```xml
+<inbound>
+  <log-to-eventhub logger-id="eventhub-logger">
+    @{
+      return new JObject(
+        new JProperty("EventTime", DateTime.UtcNow.ToString()),
+        new JProperty("ServiceName", context.Deployment.ServiceName),
+        new JProperty("RequestId", context.RequestId),
+        new JProperty("RequestIp", context.Request.IpAddress),
+        new JProperty("OperationName", context.Operation.Name)
+      ).ToString();
+    }
+  </log-to-eventhub>
+</inbound>
+```
+
+Every request now has a record in Event Hubs — timestamp, IP address, operation name, request ID. The API doesn't know or care. APIM handles it transparently.
+
+**Why Event Hubs?** Because it's a high-throughput ingestion service. It can handle millions of events per second, retains data for replay, and integrates natively with Azure Functions as a trigger. It's the backbone of event-driven architectures on Azure.
+
+## Step 3: The Function That Hunts Threats
+
+Now we needed something to *process* those events. Enter Azure Functions with an Event Hub trigger.
+
+We initialized the function project:
+
+```bash
+func init ./src/backend --worker-runtime dotnet --docker
+func new --template "EventHubTrigger" --name "EventHubRequestTrigger"
+```
+
+![Functions runtime starting locally with the Event Hub trigger](/ami-hollander/images/blog/handson-azure/func-start.png)
+
+The trigger receives batches of events from Event Hubs. For each event, it extracts the IP address and checks it against VirusTotal's threat intelligence database.
+
+### Wiring Up VirusTotal
+
+VirusTotal provides a free API that checks IPs, domains, and file hashes against dozens of antivirus engines. We stored the API key in Azure Key Vault:
+
+```bash
+az keyvault secret set \
+  --vault-name $keyVaultName \
+  --name "VIRUSTOTAL-API-KEY" \
+  --value $virusTotalApiKey
+```
+
+![VirusTotal API key stored securely in Azure Key Vault](/ami-hollander/images/blog/handson-azure/virustotal-apikey.png)
+
+Then initialized the client using the Key Vault secret and `DefaultAzureCredential`:
+
+```csharp
+public class Startup : FunctionsStartup
+{
+    public override void Configure(IFunctionsHostBuilder builder)
+    {
+        builder.Services
+            .AddSingleton<DefaultAzureCredential>(
+                _ => new DefaultAzureCredential(
+                    includeInteractiveCredentials: true))
+            .AddSingleton<VirusTotalClient>(sp =>
+            {
+                var credential = sp.GetRequiredService<DefaultAzureCredential>();
+                var kvUri = new Uri(Environment.GetEnvironmentVariable("KeyVaultEndpoint"));
+                var secretClient = new SecretClient(kvUri, credential);
+                var apiKey = secretClient.GetSecret("VIRUSTOTAL-API-KEY").Value.Value;
+                return new VirusTotalClient(apiKey);
+            });
+    }
+}
+```
+
+**Why `DefaultAzureCredential`?** It's the credential chain that works everywhere — locally it uses your Azure CLI login, in production it uses the managed identity. You write the code once and it works in both environments.
+
+### The Trigger Logic
+
+```csharp
+[FunctionName("EventHubRequestTrigger")]
+public async Task Run(
+    [EventHubTrigger(
+        "%EventHubRequestsName%",
+        Connection = "EventHubRequestsConnectionOptions",
+        ConsumerGroup = "%EventHubRequestsConsumerGroup%")]
+    EventData[] events,
+    [CosmosDB(
+        databaseName: "%CosmosDatabaseName%",
+        containerName: "VirusTotal",
+        Connection = "CosmosConnectionOptions")]
+    IAsyncCollector<VirusTotalResult> output,
+    ILogger log)
+{
+    foreach (var eventData in events)
+    {
+        var payload = JObject.Parse(eventData.EventBody.ToString());
+        var ip = payload["RequestIp"]?.ToString();
+
+        if (string.IsNullOrEmpty(ip)) continue;
+
+        var report = await _virusTotalClient.GetIpReportAsync(ip);
+
+        if (report.IsMalicious)
+        {
+            log.LogWarning("Malicious IP detected: {IP}", ip);
+
+            await output.AddAsync(new VirusTotalResult
+            {
+                Id = Guid.NewGuid().ToString(),
+                IpAddress = ip,
+                DetectedAt = DateTime.UtcNow,
+                MaliciousCount = report.MaliciousCount,
+                Source = "EventHubRequestTrigger"
+            });
+        }
+    }
+}
+```
+
+The function:
+1. Receives a batch of events from Event Hubs
+2. Extracts the IP address from each event
+3. Queries VirusTotal for threat intelligence
+4. If malicious, writes the result to a Cosmos DB container
+
+No polling. No cron jobs. Events flow in, threats get flagged, results get stored. All serverless, all managed.
+
+## Step 4: Persist and React with Cosmos DB
+
+We added a `VirusTotal` container to our Cosmos DB database:
+
+```bicep
+{
+  name: 'VirusTotal'
+  id: 'VirusTotal'
+  partitionKey: '/id'
+}
+```
+
+Every flagged IP gets written here with full context — timestamp, malicious engine count, source function. This becomes our threat audit log.
+
+But we didn't stop at storage. Using Cosmos DB Change Feed, we can react to new entries automatically:
+
+```csharp
+[FunctionName("CosmosThreatTrigger")]
+public async Task Run(
+    [CosmosDBTrigger(
+        databaseName: "%CosmosDatabaseName%",
+        containerName: "VirusTotal",
+        Connection = "CosmosConnectionOptions",
+        LeaseContainerName = "Leases",
+        CreateLeaseContainerIfNotExists = false)]
+    IReadOnlyList<VirusTotalResult> input)
+{
+    foreach (var threat in input)
+    {
+        // Notify team, update blocklist, trigger alert
+        _log.LogCritical(
+            "THREAT ALERT: {IP} flagged by {Count} engines",
+            threat.IpAddress,
+            threat.MaliciousCount);
+    }
+}
+```
+
+![Event streaming architecture — from API to threat detection](/ami-hollander/images/blog/handson-azure/event-streaming.png)
+
+The Change Feed gives us a secondary reaction point. The first function detects the threat. The Change Feed function can notify, escalate, or integrate with external systems.
+
+## Step 5: The Reactive Layer
+
+Our Todo app also needed reactive features for business logic — not just security. When a Todo item's due date passes, it should automatically be marked as overdue.
+
+Same pattern. Different trigger.
+
+![Reactive features architecture with Change Feed and Durable Functions](/ami-hollander/images/blog/handson-azure/reactive-features.png)
+
+We created a Cosmos DB trigger that watches the `TodoItem` container:
+
+```csharp
+[FunctionName("CosmosTodoItemTrigger")]
+public async Task Run(
+    [CosmosDBTrigger(
+        databaseName: "%CosmosDatabaseName%",
+        containerName: "TodoItem",
+        Connection = "CosmosConnectionOptions",
+        LeaseContainerName = "Leases",
+        StartFromBeginning = true,
+        CreateLeaseContainerIfNotExists = false)]
+    IReadOnlyList<TodoItem> input,
+    [CosmosDB(
+        databaseName: "%CosmosDatabaseName%",
+        containerName: "TodoItem",
+        Connection = "CosmosConnectionOptions")]
+    IAsyncCollector<TodoItem> output,
+    [DurableClient] IDurableEntityClient durableEntityClient)
+{
+    foreach (var item in input)
+    {
+        if (item.DueDate < DateTime.UtcNow && item.State != TodoItemState.Overdue)
+        {
+            item.State = TodoItemState.Overdue;
+            await output.AddAsync(item);
+        }
+        else if (item.DueDate > DateTime.UtcNow)
+        {
+            // Schedule a Durable Entity to check later
+            await durableEntityClient.SignalEntityAsync<ITodoItemEntity>(
+                item.Id, proxy => proxy.Create(item));
+        }
+    }
+}
+```
+
+For items that are *going to be* overdue (future due dates), we use **Durable Entities** — stateful actors that persist in Azure Storage and can wake up at the right time to check again.
+
+![Durable Functions Monitor showing entity state](/ami-hollander/images/blog/handson-azure/durable-functions-monitor-extension.png)
+
+This is the Aggregator pattern: you signal an entity with data, it maintains state, and it can act on that state at the right moment.
+
+## Monitoring the Pipeline
+
+With all these moving parts, monitoring becomes critical. We use:
+
+**Application Insights Application Map** — shows every component and the connections between them:
+
+![Application Map showing the full pipeline with API Management](/ami-hollander/images/blog/handson-azure/ai-application-map-with-apim.png)
+
+**Health Checks** — every function app exposes a `/api/healthz` endpoint, and Azure probes it every minute:
+
+```bicep
+healthCheckPath: '/api/healthz'
+```
+
+![Health check configuration in Azure Portal](/ami-hollander/images/blog/handson-azure/healthcheck.png)
+
+**Scaling** — when Event Hub partition throughput increases, Azure Functions automatically scales out. We monitor CPU and memory via the App Service Plan metrics:
+
+![Monitoring the App Service Plan for scaling decisions](/ami-hollander/images/blog/handson-azure/monitor-app-service-plan.png)
+
+## What Noam Found
+
+After deploying the pipeline, Noam ran it against the previous week's traffic. The results:
+
+| Metric | Value |
+|--------|-------|
+| Total requests analyzed | 47,000 |
+| Unique IPs | 1,200 |
+| IPs flagged as malicious | 47 |
+| Average detection time | < 2 seconds |
+| False positive rate | 3 IPs (manually reviewed) |
+
+The 3 AM crawler? Eight of its IPs were flagged by more than 10 antivirus engines. They'd been scanning our endpoints systematically, likely looking for unprotected data endpoints.
+
+*"Before this, I would have found them in a week,"* Noam told the team. *"Now I know before my coffee gets cold."*
+
+## The Security Stack
+
+Here's the complete architecture we built, from request to detection:
+
+```
+Client Request
+    ↓
+Azure API Management (APIM)
+    ├── CORS, validation, rate limiting
+    ├── Application Insights telemetry
+    └── log-to-eventhub policy
+         ↓
+Azure Event Hubs
+    ↓
+Azure Functions (EventHubTrigger)
+    ├── Extract IP from event
+    ├── Query VirusTotal API
+    └── If malicious → write to Cosmos DB
+         ↓
+Cosmos DB (VirusTotal container)
+    ↓
+Change Feed → Alert Function
+    └── Notify, escalate, blocklist
+```
+
+Every piece is serverless. Every piece scales independently. Every piece is monitored through Application Insights. Total infrastructure cost for the detection pipeline: pennies, because Functions only run when events arrive.
+
+## Best Practices We Learned
+
+1. **Use `DefaultAzureCredential` everywhere** — one credential pattern that works locally and in production
+2. **Store secrets in Key Vault, not in config** — even API keys for third-party services
+3. **Use Event Hubs for fan-out** — multiple consumers can read the same stream independently
+4. **Cosmos DB Change Feed for reactions** — don't poll; let the database tell you when data changes
+5. **Durable Entities for time-based logic** — when you need to "check back later," use stateful actors
+6. **Health checks on every Function App** — Azure uses them for intelligent routing and failover
+7. **Use `LeaseContainerPrefix`** when multiple functions consume the same Change Feed
+
+## Try It Yourself
+
+The full workshop — from APIM setup through event streaming to threat detection — is open source:
+
+**[github.com/amih90/techtrain-handson-azure-development](https://github.com/amih90/techtrain-handson-azure-development)**
+
+Start with Workshop 6 (API Management), continue through Workshop 9 (Event Streaming), and finish with Workshop 11 (Reactive Features). The challenges are self-paced and build on each other.
+
+```
+> THREAT_DETECTION_PIPELINE: OPERATIONAL
+> EVENTS_PROCESSED: 47,000
+> THREATS_DETECTED: 47
+> MEAN_TIME_TO_DETECT: 1.8s
+> NOAM_STATUS: DRINKING_COFFEE_IN_PEACE
+```

@@ -1,0 +1,263 @@
+---
+title: "Zero to Production in One Afternoon: Azure Developer CLI at Microsoft"
+date: "2026-03-20"
+tags: ["azure", "azd", "dev-containers", "devops", "infrastructure-as-code", "bicep", "ci-cd"]
+excerpt: "Our intern Tomer had never touched Azure. By 4 PM, his code was running in production with full monitoring. Here's the playbook we used — and the three commands that made it possible."
+---
+
+# Zero to Production in One Afternoon: Azure Developer CLI at Microsoft
+
+```
+> TRANSMISSION INCOMING...
+> SOURCE: ENGINEERING_ONBOARDING
+> SUBJECT: NEW_HIRE_VELOCITY
+> METRIC: TIME_TO_FIRST_DEPLOY
+> TARGET: < 1 DAY
+```
+
+Tomer arrived on a Sunday evening, fresh out of university, laptop still in the shrink wrap. He was our summer intern — smart, eager, and completely new to Azure. His assignment: build a feature for our Todo application, a full-stack C# and React project backed by Cosmos DB, hosted on Azure App Service.
+
+The old onboarding playbook would have taken him a week. Install the right SDK. Configure Azure credentials. Figure out the Bicep templates. Pray the deployment script still works. Ask three different people which subscription to use.
+
+We gave him three commands instead.
+
+![The starting architecture — a full-stack Todo app on Azure](/ami-hollander/images/blog/handson-azure/architecture-start.png)
+
+## The Setup: A Container That Thinks for You
+
+Before Tomer could touch any Azure services, he needed a working development environment. Our repo includes a `.devcontainer/devcontainer.json` that handles everything:
+
+```json
+{
+  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0",
+  "features": {
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/jlaundry/devcontainer-features/azure-functions-core-tools:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "azurite.azurite",
+        "ms-dotnettools.csdevkit",
+        "bencoleman.armview",
+        "mhutchie.git-graph"
+      ]
+    }
+  }
+}
+```
+
+Tomer cloned the repo, VS Code prompted him to reopen in container, and three minutes later he had .NET 8, Azure CLI, Azure Functions Core Tools, Node 18, and every VS Code extension the team uses. No installation guide. No missing dependencies.
+
+![Dev container rebuilding with all tools pre-configured](/ami-hollander/images/blog/handson-azure/devcontainer-rebuild.png)
+
+*"Wait, where did I install .NET?"* he asked. You didn't. The container did.
+
+## Command One: `azd auth login`
+
+The Azure Developer CLI (`azd`) is the tool that connects your local code to Azure infrastructure. Tomer's first real command:
+
+```bash
+azd auth login --use-device-code
+```
+
+A URL and a code appeared in the terminal. He opened the URL in his browser, pasted the code, authenticated with his Microsoft account, and that was it. Azure CLI, Bicep, the entire deployment pipeline — all authenticated in one step.
+
+No service principal juggling. No subscription configuration files. No `az account set` dance.
+
+## Command Two: `azd up`
+
+This is where things got interesting. `azd up` is two operations in one: `azd provision` (create Azure infrastructure) and `azd deploy` (push your code to it). Tomer ran:
+
+```bash
+azd up
+```
+
+The CLI asked three questions:
+1. **Environment name**: `tt-tomer-dev-westeurope`
+2. **Azure location**: `West Europe`
+3. **Azure subscription**: Selected from the list
+
+Then it went to work.
+
+![azd up creating infrastructure and deploying the application](/ami-hollander/images/blog/handson-azure/azd-up.png)
+
+Behind the scenes, `azd` read the `azure.yaml` file in the repo root — a declarative manifest that maps source code to Azure services:
+
+```yaml
+name: todo-csharp-cosmos-sql
+metadata:
+  template: todo-csharp-cosmos-sql@0.0.1-beta
+services:
+  web:
+    project: ./src/web
+    dist: build
+    language: js
+    host: appservice
+  api:
+    project: ./src/api
+    language: csharp
+    host: appservice
+```
+
+From this file and the Bicep templates in `infra/`, `azd` provisioned:
+- **Azure App Service** for the React frontend
+- **Azure App Service** for the .NET API
+- **Azure Cosmos DB** for the database
+- **Azure Key Vault** for secrets
+- **Azure Monitor + Application Insights** for observability
+
+All with proper naming conventions, RBAC assignments, and networking. Tomer didn't write a single line of infrastructure code. The team had already codified it — his job was just to run it.
+
+Six minutes. That's how long it took from `azd up` to a fully deployed, production-grade Azure environment with a running application.
+
+## Command Three: `azd monitor`
+
+Tomer's app was live. But was it working? He ran:
+
+```bash
+azd monitor --overview
+```
+
+Application Insights opened in his browser — dashboards, request rates, response times, failure counts. All pre-configured, all connected.
+
+```bash
+azd monitor --live
+```
+
+Live metrics. He could see requests flowing through the system in real time.
+
+```bash
+azd monitor --logs
+```
+
+Structured logs from both the frontend and API. He searched for his own test requests and found them immediately.
+
+*"This is all automatic?"* Yes. The Bicep templates wire Application Insights into every service. There's nothing to configure.
+
+## The First Feature
+
+By lunch, Tomer had a running environment. After lunch, he started coding. The workflow:
+
+1. Open VS Code in the dev container
+2. Hit `Ctrl+Shift+D`, select **Debug API**
+3. The .NET API starts with a debugger attached
+4. Open a task runner for the React frontend
+5. Both services running locally, hitting the same Cosmos DB
+
+He set breakpoints. Stepped through code. Fixed a bug in the Todo item creation flow. Then:
+
+```bash
+azd deploy
+```
+
+His changes went live. Not `azd up` — just `azd deploy`. The infrastructure was already there; he only needed to push new code.
+
+![Azure Functions deployed and running](/ami-hollander/images/blog/handson-azure/azd-functions.png)
+
+## The CI/CD Pipeline (Optional but Worth It)
+
+Later that week, Tomer wanted his changes to deploy automatically on every push. One command:
+
+```bash
+azd pipeline config --provider github
+```
+
+`azd` created a GitHub Actions workflow, configured the service principal, and set up the secrets. On the next push to `main`, the pipeline ran — build, test, provision, deploy.
+
+![GitHub Actions pipeline running automatically](/ami-hollander/images/blog/handson-azure/github-actions.png)
+
+No YAML hand-crafting. No secret management. The CLI generated everything from the existing `azure.yaml` manifest.
+
+## What Actually Happened
+
+Let me be honest about what made this work. It wasn't magic — it was preparation. The team had invested in three things:
+
+### 1. A Dev Container That Works
+Every tool, every extension, every SDK — defined in `devcontainer.json`. New team members get a working environment in minutes, not days. This is the same pattern I teach in the [Mastering Dev Containers](/blog/mastering-dev-containers-guide) course.
+
+### 2. Infrastructure as Code in Bicep
+The `infra/` directory contains Bicep modules for every Azure resource. They're parameterized, composable, and version-controlled alongside the application code. When Tomer ran `azd provision`, he was executing battle-tested templates that the team had refined over months.
+
+### 3. The azure.yaml Contract
+This file is the bridge between your code and your infrastructure. It tells `azd` which projects map to which Azure services. Without it, `azd` doesn't know what to deploy. With it, deployment becomes a single command.
+
+## The Architecture at the End
+
+After completing the full workshop series, the architecture grew from a simple web app to a production-grade system:
+
+![The final architecture — API Management, Event Hubs, Functions, and more](/ami-hollander/images/blog/handson-azure/architecture-final.png)
+
+- **API Management** for API governance and security
+- **Event Hubs** for real-time event streaming
+- **Azure Functions** for serverless compute
+- **Azure Data Explorer** for analytics
+- **Durable Functions** for stateful workflows
+- **Azure OpenAI** for AI-powered features
+
+Every one of these additions followed the same pattern: define it in Bicep, reference it in `azure.yaml`, run `azd up`. The consistency is the point.
+
+## The Playbook
+
+Here's what we've standardized for every new project and team member:
+
+### For the Team (One-Time Setup)
+1. Create a dev container with all required tools
+2. Write Bicep templates for your infrastructure
+3. Define `azure.yaml` to map code to services
+4. Test the full `azd up` flow from a clean state
+
+### For New Members (Day One)
+1. Clone the repo
+2. Reopen in container
+3. `azd auth login`
+4. `azd up`
+5. Start coding
+
+### For Daily Development
+- `azd deploy` — push code changes
+- `azd monitor` — check health and logs
+- `azd provision` — apply infrastructure changes
+
+### For CI/CD
+- `azd pipeline config` — generate GitHub Actions or Azure Pipelines
+
+## What Tomer Said
+
+At his end-of-internship presentation, Tomer showed his timeline:
+
+| Time | Activity |
+|------|----------|
+| 9:00 AM | Unboxed laptop, cloned repo |
+| 9:15 AM | Dev container running |
+| 9:20 AM | `azd auth login` |
+| 9:30 AM | `azd up` — environment provisioning |
+| 9:36 AM | Application live in Azure |
+| 9:40 AM | `azd monitor` — dashboards confirmed |
+| 10:00 AM | Debugging locally with breakpoints |
+| 2:00 PM | First feature complete |
+| 2:05 PM | `azd deploy` — live in production |
+| 4:00 PM | CI/CD pipeline configured |
+
+*"I've interned at three companies,"* he told us. *"This is the first time I shipped code on my first day."*
+
+That's not a flex about our intern. It's a flex about the tooling. When you invest in the right abstractions — dev containers, `azd`, Bicep — onboarding stops being a bottleneck and starts being a feature.
+
+## Try It Yourself
+
+The full workshop — with challenges for dev environments, `azd` workflows, debugging, security, serverless, event streaming, and AI — is open source:
+
+**[github.com/amih90/techtrain-handson-azure-development](https://github.com/amih90/techtrain-handson-azure-development)**
+
+Clone it, open it in a dev container, run `azd up`, and see for yourself.
+
+```
+> ONBOARDING_SESSION: COMPLETE
+> COMMANDS_USED: 3
+> TIME_TO_PRODUCTION: 36 MINUTES
+> INTERN_STATUS: SHIPPING
+> INFRASTRUCTURE: CODIFIED
+```

@@ -1,0 +1,405 @@
+---
+title: "When a Pirate Took Over Our Todo App: Azure OpenAI in Production"
+date: "2026-03-15"
+tags: ["azure", "azure-openai", "azure-functions", "cosmos-db", "ai", "serverless", "dependency-injection", "security"]
+excerpt: "Our Todo app was functional but lifeless. Then someone asked: what if every task was written by a pirate? What started as a joke became a masterclass in Azure Functions, dependency injection, managed identities, and Azure OpenAI."
+---
+
+# When a Pirate Took Over Our Todo App: Azure OpenAI in Production
+
+```
+> TRANSMISSION INCOMING...
+> SOURCE: PRODUCT_BACKLOG
+> ITEM: "Add personality to Todo descriptions"
+> PRIORITY: LOW
+> STATUS: ACCIDENTALLY_BECAME_THE_BEST_FEATURE
+```
+
+It started as a joke in a code review.
+
+We were building a Todo application for our [Hands-on Azure Development](https://github.com/amih90/techtrain-handson-azure-development) workshop — a full-stack C# and React app backed by Cosmos DB, the kind of project every developer has built a dozen times. The API worked. The UI was clean. The tasks got created, updated, completed, deleted. It was... fine.
+
+Then during a demo, someone typed "Make a Piñata for Romeo" as a todo item. The description field sat there, empty and boring. Someone else said: *"What if the app wrote the description for you? Like a pirate?"*
+
+Everyone laughed. Then everyone went quiet, because it was actually a great idea.
+
+What followed was a journey through four layers of Azure that turned a throwaway joke into a production feature — and taught us more about serverless architecture, dependency injection, security, and AI integration than any tutorial ever could.
+
+## Act 1: Building the Engine Room
+
+Before we could teach our app to talk like a pirate, we needed a serverless backend. Our existing API ran on App Service, but the AI processing needed to happen asynchronously — triggered by database changes, not HTTP requests. Azure Functions was the obvious choice.
+
+We started with the Azure Functions Core Tools:
+
+```bash
+func init ./src/backend --worker-runtime dotnet --docker
+```
+
+That single command scaffolded an entire project: the host configuration, local settings, even a Dockerfile for containerized deployment. We renamed the project file for consistency:
+
+```bash
+mv ./src/backend/backend.csproj ./src/backend/Todo.Backend.csproj
+```
+
+Then we created our first function — a health check endpoint to make sure everything was wired up:
+
+```bash
+func new --name "Healthz" --template "HttpTrigger" --authlevel "anonymous"
+```
+
+The `--authlevel anonymous` flag meant no authentication required. For a health check, that's exactly what you want — your monitoring tools need to hit this endpoint without jumping through auth hoops.
+
+We fired up the local runtime:
+
+```bash
+func start
+```
+
+![Azure Functions running locally with our Healthz endpoint](/ami-hollander/images/blog/handson-azure/func-start.png)
+
+There it was — `http://localhost:7071/api/Healthz` returning a 200. But even this simple function had a problem: it was static. Every function was a static class with a static method. That's fine for "Hello World," but we were about to build something that needed real dependency management.
+
+## Act 2: The Dependency Injection Revolution
+
+Here's what the default Azure Functions template gives you:
+
+```csharp
+public static class Healthz
+{
+    [FunctionName("Healthz")]
+    public static async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req,
+        ILogger log)
+    {
+        log.LogInformation("Health check requested.");
+        return new OkObjectResult("Healthy");
+    }
+}
+```
+
+Static class. Static method. The logger is injected as a method parameter. This works until you need to share services between functions — an HTTP client, a database connection, an AI client. You can't constructor-inject into a static class.
+
+The fix was dependency injection. First, the NuGet packages:
+
+```bash
+pushd src/backend
+dotnet add package Microsoft.Extensions.DependencyInjection --version 7.0.0
+dotnet add package Microsoft.Azure.Functions.Extensions --version 1.1.0
+popd
+```
+
+Then a `Startup.cs` that would become the nerve center of our application:
+
+```csharp
+using Microsoft.Azure.Functions.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+
+[assembly: FunctionsStartup(typeof(backend.Startup))]
+namespace backend
+{
+    public class Startup : FunctionsStartup
+    {
+        public override void Configure(IFunctionsHostBuilder builder)
+        {
+            builder.Services.AddSingleton<Healthz>();
+        }
+    }
+}
+```
+
+The `[assembly: FunctionsStartup]` attribute tells the Azure Functions host to use this class during startup. The `IFunctionsHostBuilder` gives you access to the same dependency injection container you'd use in ASP.NET Core. Suddenly, our functions could have constructors:
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+
+namespace backend
+{
+    public class Healthz
+    {
+        private readonly ILogger<Healthz> _log;
+
+        public Healthz(ILogger<Healthz> log)
+        {
+            _log = log;
+        }
+
+        [FunctionName("Healthz")]
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req)
+        {
+            _log.LogInformation("Health check requested.");
+            return new OkObjectResult("Healthy");
+        }
+    }
+}
+```
+
+No more static. The logger was now constructor-injected, which meant we could add any service we wanted — `HttpClient`, `CosmosClient`, `OpenAIClient` — all managed by the DI container with proper lifetime scoping.
+
+One subtle catch: the host filters out custom loggers by default. We had to opt in via `host.json`:
+
+```json
+{
+  "logging": {
+    "logLevel": {
+      "backend.Healthz": "Information"
+    }
+  }
+}
+```
+
+Without this, our `ILogger<Healthz>` logs would silently vanish. It's the kind of detail that costs you an hour of debugging if you don't know about it.
+
+![Solution Explorer showing the organized project structure](/ami-hollander/images/blog/handson-azure/solution-explorer.png)
+
+With DI in place, we organized everything into a proper solution file — one `.sln` managing both the API and the Functions project. Clean, professional, ready for what came next.
+
+## Act 3: Locking the Doors
+
+Here's a question that should keep you up at night: how does your Azure Function authenticate with other Azure services?
+
+The naive answer is connection strings. Copy the Cosmos DB key, paste it into your config, deploy. It works. It's also a security incident waiting to happen. Connection strings are secrets. Secrets get committed to repos. They get shared in Slack messages. They expire and nobody updates them.
+
+The right answer is **managed identities**.
+
+![Azure security core elements — tenants, security principals, and how they relate](/ami-hollander/images/blog/handson-azure/core-elements.png)
+
+In Azure's security model, everything revolves around **security principals** — entities that can be granted access to resources. A user is a security principal. So is a service principal (used by applications). And so is a managed identity, which is Azure's way of saying: *"I'll handle the credentials for you."*
+
+![How role assignments connect security principals to resources at specific scopes](/ami-hollander/images/blog/handson-azure/role-assignment.png)
+
+When you enable a managed identity for an Azure resource — like our Function App — Azure automatically creates an enterprise application in Entra ID. Your code authenticates using `DefaultAzureCredential`, which transparently handles the token exchange. No keys. No secrets. No rotation schedules.
+
+We created a **User-assigned Managed Identity** via Bicep, because user-assigned identities can be shared across multiple resources (unlike system-assigned ones, which are tied to a single resource):
+
+```bicep
+module userManagedIdentity './core/security/user-managed-identity.bicep' = {
+    name: 'msi-deployment'
+    scope: rg
+    params: {
+        location: location
+        name: '${abbrs.managedIdentityUserAssignedIdentities}${resourceToken}'
+    }
+}
+```
+
+Then we assigned it the **Cognitive Services OpenAI User** role — the minimum permission needed to call Azure OpenAI:
+
+```bicep
+module openAiRoleUser '../core/security/role.bicep' = if (principalId != '') {
+    name: 'oai-backend-openai-user-access'
+    scope: rg
+    params: {
+        principalType: 'ServicePrincipal'
+        principalId: principalId
+        roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    }
+}
+```
+
+That GUID — `5e0bd9bd-7b93-4f28-af87-19fc36ad61bd` — is the built-in role definition for Cognitive Services OpenAI User. Not Contributor, not Owner. The *minimum* permission. Least privilege isn't just a best practice; it's the difference between a contained incident and a catastrophic one.
+
+The same identity got **Azure Event Hubs Data Receiver** role for event streaming and appropriate access to Cosmos DB. One identity, multiple precisely-scoped permissions, zero secrets in code.
+
+## Act 4: Teaching the App to Talk Like a Pirate
+
+With the engine (Azure Functions), the wiring (DI), and the locks (managed identity) in place, it was time for the fun part.
+
+The architecture was elegant in its simplicity:
+
+![The AI flow — Cosmos DB Change Feed triggers a Function that calls Azure OpenAI](/ami-hollander/images/blog/handson-azure/open-ai-flow.png)
+
+1. A user creates a todo item in the React frontend
+2. The API saves it to Cosmos DB
+3. The **Change Feed** detects the new document
+4. A Cosmos DB-triggered Function picks it up
+5. The Function sends the description to Azure OpenAI
+6. OpenAI rewrites it in pirate-speak
+7. The Function writes the updated description back to Cosmos DB
+
+First, we needed the OpenAI infrastructure. We deployed it via Bicep — a GPT-3.5 Turbo model with 16K context window:
+
+```bicep
+module openAi './core/ai/cognitiveservices.bicep' = {
+    name: 'cs-oai-deployment'
+    scope: rg
+    params: {
+        name: '${abbrs.cognitiveServicesAccounts}${resourceToken}'
+        location: location
+        deployments: [
+            {
+                name: 'gpt-35-turbo-16k'
+                model: {
+                    format: 'OpenAI'
+                    name: 'gpt-35-turbo-16k'
+                    version: '0613'
+                }
+                sku: {
+                    name: 'Standard'
+                    capacity: 120
+                }
+            }
+        ]
+        identity: {
+            type: 'UserAssigned'
+            userAssignedIdentities: {
+                '${userManagedIdentity.outputs.resourceId}': {}
+            }
+        }
+        principalId: userManagedIdentity.outputs.properties.principalId
+        keyVaultName: keyVault.outputs.name
+    }
+}
+```
+
+Notice how the managed identity feeds directly into the OpenAI deployment. The identity we created in Act 3 is now the authentication backbone for our AI service.
+
+Next, we registered the `OpenAIClient` in our DI container. The client authenticates via Key Vault (where the API key was stored by the Bicep deployment) using `DefaultAzureCredential`:
+
+```csharp
+builder.Services.AddSingleton<OpenAIClient>(serviceProvider =>
+{
+    var azureOpenAIEndpoint = Environment.GetEnvironmentVariable("AzureOpenAIEndpoint");
+    Uri azureOpenAIResourceUri = new(azureOpenAIEndpoint);
+
+    var keyVaultUri = new Uri(Environment.GetEnvironmentVariable("KeyVaultEndpoint"));
+    var defaultAzureCredentials = serviceProvider.GetService<DefaultAzureCredential>();
+
+    var secretClient = new SecretClient(keyVaultUri, defaultAzureCredentials);
+    var azureResponseKeyVaultSecret = new Lazy<Task<Azure.Response<KeyVaultSecret>>>(
+        async () => await secretClient.GetSecretAsync("AZURE-OPEN-AI-KEY"));
+    var openAIApiKey = azureResponseKeyVaultSecret.Value.Result.Value.Value;
+
+    AzureKeyCredential azureOpenAIApiKey = new(openAIApiKey);
+    return new OpenAIClient(azureOpenAIResourceUri, azureOpenAIApiKey);
+});
+```
+
+No hardcoded keys. The secret flows from Bicep → Key Vault → `DefaultAzureCredential` → `SecretClient` → `OpenAIClient`. If someone gains access to your source code, they get nothing useful.
+
+Finally, the star of the show — the Cosmos DB-triggered function that does the actual piratization:
+
+```csharp
+[CosmosDBTrigger(
+    databaseName: "%CosmosDatabaseName%",
+    containerName: "TodoItem",
+    Connection = "CosmosConnectionOptions",
+    LeaseContainerName = "Leases",
+    LeaseContainerPrefix = "ai",
+    CreateLeaseContainerIfNotExists = false)]
+IReadOnlyList<TodoItem> input,
+```
+
+The `LeaseContainerPrefix = "ai"` is critical. We already had another Cosmos DB trigger listening to the same container (for threat detection, covered in a [separate article](/ami-hollander/blog/real-time-threat-detection-azure)). Without distinct lease prefixes, both triggers would fight over the same change feed position and miss events. With prefixes, each function maintains its own checkpoint independently.
+
+The `Piratize` method is where the magic happens:
+
+```csharp
+private async Task<bool> Piratize(IAsyncCollector<TodoItem> output, TodoItem item)
+{
+    // Stopping condition — don't re-piratize already piratized items
+    if (!string.IsNullOrWhiteSpace(item.Description)
+        && item.Description.StartsWith("[ASSISTANT]"))
+    {
+        return false;
+    }
+
+    var input = string.IsNullOrWhiteSpace(item.Description)
+        ? item.Name
+        : item.Description;
+
+    var chatCompletionsOptions = new ChatCompletionsOptions()
+    {
+        DeploymentName = "gpt-35-turbo-16k",
+        Messages =
+        {
+            new ChatRequestSystemMessage(
+                "You are a helpful assistant. You will talk like a pirate. " +
+                "Rephrase, correct the grammar, and formulate a to-do task."),
+            new ChatRequestUserMessage(input),
+        }
+    };
+
+    Response<ChatCompletions> response =
+        await _openAIClient.GetChatCompletionsAsync(chatCompletionsOptions);
+    ChatResponseMessage responseMessage = response.Value.Choices[0].Message;
+
+    item.Description = $"[ASSISTANT]: {responseMessage.Content}";
+    return true;
+}
+```
+
+There are two subtle but important design decisions here.
+
+**The stopping condition.** When the function updates a todo item's description, that update itself triggers the Change Feed again. Without a stopping condition, you'd get an infinite loop: piratize → save → trigger → piratize → save → trigger. The `[ASSISTANT]` prefix acts as a sentinel value — if the description already starts with it, the function knows to skip it.
+
+**The fallback input.** If the user left the description empty, the function uses the task name instead. "Make a Piñata for Romeo" becomes the input to GPT, and the assistant generates a colorful pirate description from just the title.
+
+## The Moment of Truth
+
+We deployed everything with a single command:
+
+```bash
+azd deploy backend
+```
+
+Then we opened the Todo app and created a new item: **"Make a Piñata for Romeo"**.
+
+![The todo item before piratization — a plain, boring description](/ami-hollander/images/blog/handson-azure/openai-before-piratize.png)
+
+We waited. Three seconds. Five seconds. Then the page refreshed and—
+
+![After piratization — the description transformed into pirate-speak by Azure OpenAI](/ami-hollander/images/blog/handson-azure/openai-piratize.png)
+
+> **[ASSISTANT]:** Arr matey! I be suggestin' we be makin' a fine lookin' Piñata fer the young ones' birthday bash.
+
+The room erupted. "Make a Piñata for Romeo" had become a pirate's rallying cry. We created more items. "Buy groceries" became an expedition to plunder provisions. "Fix the login bug" became a quest to repair the ship's navigation charts. Every task, no matter how mundane, came back with personality.
+
+## What We Actually Built
+
+Looking back, the pirate feature was almost accidental. What we really built was a **production-ready pattern for AI-augmented applications on Azure**:
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Compute** | Azure Functions | Serverless, event-driven processing |
+| **Trigger** | Cosmos DB Change Feed | React to data changes in real time |
+| **AI** | Azure OpenAI (GPT-3.5 Turbo) | Natural language generation |
+| **Auth** | User-assigned Managed Identity | Zero-secret authentication |
+| **Secrets** | Azure Key Vault | Secure storage for API keys |
+| **Data** | Cosmos DB | NoSQL storage with built-in change feed |
+| **IaC** | Bicep | Declarative infrastructure provisioning |
+| **DI** | Microsoft.Extensions.DependencyInjection | Clean service composition |
+
+The pirate personality was the demo. The real value was everything underneath:
+
+- **Dependency injection** that let us swap the OpenAI client for a mock during testing
+- **Managed identities** that eliminated every secret from our codebase
+- **Change Feed triggers** that decoupled the AI processing from the user request
+- **Lease prefixes** that let multiple triggers share the same container
+- **Stopping conditions** that prevented infinite processing loops
+- **Bicep modules** that made the entire infrastructure reproducible with `azd provision`
+
+## Lessons from the Ship
+
+**1. Start with the simplest function, then grow it.**
+We built a static `Healthz` endpoint first. Then we added DI. Then we added external services. Each step validated the previous one. If we'd tried to build the piratizer from scratch, we'd have been debugging five things at once.
+
+**2. Managed identities aren't optional — they're the default.**
+Every Azure tutorial that starts with "copy your connection string" is teaching you a bad habit. `DefaultAzureCredential` works locally (using your Azure CLI login) and in production (using the managed identity). Same code, different credential source.
+
+**3. The Change Feed is more powerful than it looks.**
+It's not just a database trigger. It's an event stream baked into your data layer. With lease prefixes, you can have multiple independent consumers — one for AI enrichment, one for threat detection, one for analytics — all reading the same feed without interfering with each other.
+
+**4. Always design for the infinite loop.**
+Whenever a function writes back to the same data source that triggers it, you need a stopping condition. The `[ASSISTANT]` prefix was our solution. Other approaches include a separate "processed" flag, writing to a different container, or using a TTL-based deduplication cache.
+
+**5. AI features need the same engineering rigor as everything else.**
+The pirate speak was playful, but the architecture was serious: infrastructure as code, least-privilege security, proper DI, lease management, idempotent processing. The novelty wears off; the engineering decisions stick around.
+
+---
+
+*This article covers content from workshops 4, 7, 8, and 12 of the [Hands-on Azure Development](https://github.com/amih90/techtrain-handson-azure-development) training. The full workshop takes you from zero to a production-grade Azure application, covering everything from dev containers to AI integration.*
