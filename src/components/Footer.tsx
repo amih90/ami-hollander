@@ -39,11 +39,6 @@ export default function Footer() {
           <p className="font-[family-name:var(--font-body)] text-sm text-[rgba(240,239,244,0.3)]">
             &copy; {new Date().getFullYear()} Ami Hollander
           </p>
-
-          {/* Built with */}
-          <p className="font-[family-name:var(--font-body)] text-xs text-[rgba(240,239,244,0.2)]">
-            Built with Next.js &amp; Azure
-          </p>
         </div>
       </div>
     </footer>

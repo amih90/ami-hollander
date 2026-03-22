@@ -1,0 +1,405 @@
+---
+title: "From 2.5 Minutes to 2 Seconds: Dev Containers at Microsoft Scale"
+date: "2026-03-22"
+tags: ["dev-containers", "docker", "vscode", "developer-experience", "devops", "ai", "python", "dotnet"]
+excerpt: "Sara spent her first week fighting .NET SDK versions. Lihi waited 30 minutes every morning for her AI playground to boot. Then we gave them dev containers."
+---
+
+# From 2.5 Minutes to 2 Seconds: Dev Containers at Microsoft Scale
+
+```
+> INCOMING SIGNAL...
+> SOURCE: ONBOARDING_INCIDENT_REPORT
+> SEVERITY: HIGH
+> STATUS: UNRESOLVED
+```
+
+Sara joined our team on a Monday. By Wednesday, she still hadn't written a single line of code.
+
+A Principal Software Engineer with years of Java experience, Sara was supposed to hit the ground running on our .NET project. Instead, she was trapped in a maze of .NET Framework vs .NET Core vs .NET 8, debugging SDK conflicts, hunting for the right VS Code extensions, and wondering why the build worked on her colleague's machine but not hers. Her onboarding doc was 20 pages long and already outdated.
+
+Meanwhile, across the hall, Lihi — a Data & Applied Scientist building our next Generative AI models — had a different problem. Every morning, she'd open her laptop, start her dev environment, and wait. Python packages reinstalling. A 2.2 GB language model re-downloading. Thirty minutes before she could write her first line of code. Cloud resources were too expensive for experimentation, so she was stuck with a fragile local setup that broke whenever someone breathed on it.
+
+Two people. Two different stacks. The same root cause: **development environments are fragile, manual, and non-portable**.
+
+This is the story of how we fixed it — and the playbook I now use when running the [Mastering Dev Containers](https://github.com/amih90/mastering-dev-containers) course at Microsoft. If you've read my [earlier intro to dev containers](/blog/dev-containers), consider this the advanced deep dive. We're going from zero to a fully optimized AI playground, with real gotchas and hard-won lessons along the way.
+
+## The One-File Fix
+
+The solution for both Sara and Lihi lives in a single file: `.devcontainer/devcontainer.json`. It defines a Docker container configured as a complete development environment — tools, extensions, dependencies, settings, everything. One file, version-controlled alongside the code.
+
+When you open a project with this file and select **Reopen in Container**, VS Code reads the config, pulls the image, starts the container, attaches your editor, and installs everything specified. The result: a fully configured workspace in seconds, identical for every team member.
+
+![VS Code prompting to reopen in container](/ami-hollander/images/blog/mastering-dev-containers/vscode-extension-reopen-in-container.png)
+
+But the theory is easy. Let's see what happened when we actually built containers for Sara and Lihi.
+
+## Sara's Story: From Lost to Shipping in One Day
+
+![Sara — Principal Software Engineer](/ami-hollander/images/blog/mastering-dev-containers/sara.png)
+
+### Creating the Container
+
+We started by sitting down with Sara and generating a dev container config through the Command Palette (`Ctrl+Shift+P` → **Dev Containers: Add Dev Container Configuration Files**). Selected **C# (.NET)** with .NET 8.
+
+Since our repo serves both .NET and Python teams, we organized configs per persona:
+
+```
+.devcontainer/
+├── sara/
+│   └── devcontainer.json    # .NET development
+├── lihi/
+│   └── devcontainer.json    # Python + AI
+└── devcontainer.json        # Default
+```
+
+![Selecting the C# (.NET) dev container template in VS Code](/ami-hollander/images/blog/mastering-dev-containers/vscode-extension-add-dev-container-configuration-files-dotnet.png)
+
+Sara watched the file get generated and asked: *"That's it? Where's the 20-page setup guide?"*
+
+### Building a Project Inside the Container
+
+She reopened VS Code in the container and tried the .NET CLI:
+
+```bash
+mkdir -p ./src/dotnet && cd ./src/dotnet
+dotnet new webapi -n MasteringDevContainer
+cd MasteringDevContainer
+dotnet build && dotnet run
+```
+
+It compiled on the first try. No SDK debugging. No Stack Overflow tabs.
+
+![.NET Web API running successfully inside the dev container](/ami-hollander/images/blog/mastering-dev-containers/01-webapi-console.png)
+
+She navigated to `https://localhost:{PORT}/weatherforecast` and had a running API — without installing a single thing on her host machine.
+
+*"I've been fighting this for three days,"* she said. *"That took three minutes."*
+
+### Customizing for the Team
+
+But Sara still needed Azure CLI for deployments, a REST client for testing, and C# Dev Kit for IntelliSense. These were the tools buried on page 14 of the old setup doc. Now they're three lines in a JSON file:
+
+```json
+{
+  "name": "Sara's .NET Environment",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/azure-cli:1": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "humao.rest-client",
+        "ms-dotnettools.csdevkit"
+      ]
+    }
+  }
+}
+```
+
+After rebuilding the container (`Ctrl+Shift+P` → **Dev Containers: Rebuild Container**), Sara had Azure CLI, a REST client, and full C# IntelliSense. She shipped her first PR that afternoon — on her fourth day, not her fourth week.
+
+## Lihi's Story: Building an AI Playground That Actually Works
+
+![Lihi — Data & Applied Scientist](/ami-hollander/images/blog/mastering-dev-containers/lihi.png)
+
+Sara's problem was solved. But Lihi's was harder. She didn't just need a language runtime — she needed an entire AI experimentation platform:
+
+- Python 3.12 with specific packages
+- FastAPI web server for her application
+- Ollama for local LLM inference
+- Jupyter notebooks for experimentation
+- All dependencies reproducible across machines
+
+*"I've tried Docker before,"* Lihi told us. *"I always end up with a broken container I can't debug."*
+
+We started simple.
+
+### The Base Configuration
+
+```json
+{
+  "name": "Lihi's AI Playground",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true
+    },
+    "ghcr.io/prulloac/devcontainer-features/ollama:1": {}
+  }
+}
+```
+
+**Why `remoteUser: "vscode"` matters**: Running as non-root is a security best practice. It prevents privilege escalation, matches production environments, avoids file permission issues, and follows the principle of least privilege.
+
+Lihi reopened in the container. Python 3.12 was there. Ollama was there. She ran `python --version` and for the first time in weeks, didn't get a version conflict.
+
+### Taming the Monorepo
+
+Our repo contains both .NET and Python projects. Opening everything overwhelmed Lihi with files she'd never touch. The fix: mount only what she needs:
+
+```json
+{
+  "workspaceMount": "source=${localWorkspaceFolder}/samples/python,target=/workspace,type=bind",
+  "workspaceFolder": "/workspace"
+}
+```
+
+Now Lihi sees exactly her Python projects — no .NET code, no C++ samples, just her workspace.
+
+### Lifecycle Hooks: Automating the Boring Parts
+
+Lihi's morning ritual used to be: open terminal, pip install, wait, pull model, wait longer, pray nothing broke. We automated all of it:
+
+- **`postCreateCommand`** — Runs once when the container is first created
+- **`postStartCommand`** — Runs every time the container starts
+
+```json
+{
+  "postStartCommand": "pip3 install --user -r webapp/requirements.txt && pip3 install --user -r ollama/requirements.txt && ollama pull phi3:mini && echo '\\nWelcome to the playground!\\n'"
+}
+```
+
+### Integrating Jupyter and Ollama
+
+The final piece: Jupyter notebooks for interactive experimentation, with the right Python kernel configured automatically:
+
+```json
+{
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "donjayamanne.vscode-default-python-kernel"
+      ]
+    }
+  },
+  "portsAttributes": {
+    "8000": {
+      "label": "Web Application",
+      "onAutoForward": "notify"
+    }
+  }
+}
+```
+
+Lihi pulled phi3:mini, opened a notebook, ran inference, and got a pirate-themed welcome message from a language model running entirely on her laptop.
+
+![Ollama chat completion running locally inside the dev container](/ami-hollander/images/blog/mastering-dev-containers/ollama-chat-completion.png)
+
+*"No cloud bill?"* she asked. No cloud bill.
+
+## When Things Went Wrong
+
+We thought we were done. We were not.
+
+### The Monday Morning Problem
+
+Lihi came in the following Monday and Slacked us: *"It's doing it again. Two and a half minutes before I can work."*
+
+The container was rebuilding from scratch every time — re-downloading Python packages and, worst of all, re-pulling the 2.2 GB phi3 language model. Every. Single. Morning.
+
+![Lihi's dev container startup restoring all dependencies](/ami-hollander/images/blog/mastering-dev-containers/python-welcome-to-the-playground.png)
+
+The culprit: no persistent storage. Every `pip install` and `ollama pull` ran from zero on each rebuild. The fix: **persistent mounts**.
+
+**Volume mount for Python packages:**
+```json
+{
+  "mounts": [
+    "source=my-project-deps,target=/home/vscode/.local/lib/python3.12,type=volume"
+  ],
+  "postCreateCommand": "sudo chown -R vscode /home/vscode/.local"
+}
+```
+
+**Persist Ollama models in the same mount:**
+```json
+{
+  "containerEnv": {
+    "OLLAMA_MODELS": "/home/vscode/.local/lib/python3.12/.ollama"
+  }
+}
+```
+
+Lihi rebuilt once, and the volume cached everything. The next morning: **2 seconds**. Not 2.5 minutes — 2 seconds. She Slacked us a single emoji: 🚀
+
+### Extracting Hooks to Scripts
+
+When `postStartCommand` grows beyond a single line, move the logic to a script:
+
+```bash
+#!/bin/bash
+# scripts/post-start-command.sh
+
+# Update the package index
+sudo apt update
+
+# Update pip
+pip3 install --upgrade pip
+
+# Install Python dependencies
+pip3 install --user -r webapp/requirements.txt
+pip3 install --user -r ollama/requirements.txt
+
+# Pull Generative AI Model
+ollama pull phi3:mini
+
+# Trust safe directories
+git config --global --add safe.directory /workspace
+
+echo -e "\nWelcome to the playground!\n"
+```
+
+Then reference it cleanly:
+```json
+{
+  "postStartCommand": "./scripts/post-start-command.sh"
+}
+```
+
+This is easier to maintain, version control, and debug than inline JSON strings.
+
+### The Git Incident
+
+Two weeks in, Lihi tried to commit her changes from inside the container. Git threw an error: `.git` folder not found.
+
+![Git source control showing no repository found inside the dev container](/ami-hollander/images/blog/mastering-dev-containers/vscode-git-status.png)
+
+Remember the workspace mount from earlier? We'd pointed it at `/samples/python` — but the `.git` folder lives at the repository root. Lihi's container had no idea it was inside a Git repo.
+
+The fix: mount the full repository, but keep the workspace focused:
+
+```json
+{
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace/samples/python"
+}
+```
+
+And mark the workspace as a safe directory in the startup script:
+
+```bash
+git config --global --add safe.directory /workspace
+```
+
+Now Lihi sees only her Python projects in the file explorer, but `git commit`, `git push`, and `git log` all work perfectly. Focused navigation, full Git functionality.
+
+### Understanding Mount Types
+
+Choosing the right mount type matters:
+
+| Type | Use Case | Persistence | Performance |
+|------|----------|-------------|-------------|
+| **bind** | Source code, config files | Host filesystem | Good, mirrors host |
+| **volume** | Dependencies, caches | Docker-managed | Best for heavy I/O |
+| **tmpfs** | Ephemeral/temp data | None (in-memory) | Fastest, no persistence |
+
+For dependencies like `node_modules` or Python `site-packages`, **volumes** are almost always the right choice. They survive container rebuilds and offer better I/O performance than bind mounts.
+
+## Multi-Container and Compose Workflows
+
+For projects that need databases, message queues, or other services alongside the dev environment, use Docker Compose:
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - .:/workspace:cached
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: devpassword
+```
+
+Reference it in your `devcontainer.json`:
+
+```json
+{
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace"
+}
+```
+
+## Cross-IDE Support
+
+Dev containers aren't VS Code-only. The [Dev Container specification](https://containers.dev/) is an open standard supported by:
+
+- **VS Code** — Full native support via Remote Development extension
+- **GitHub Codespaces** — Cloud-hosted dev containers
+- **JetBrains IDEs** — IntelliJ, PyCharm, and others support the spec
+- **Visual Studio** — Dev container support for C++ and more
+- **DevPod** — Open-source tool for running dev containers anywhere
+
+Your `devcontainer.json` works across all of these. Write it once, run it everywhere.
+
+## Adoption Strategy
+
+After running this course with dozens of teams, here's what works:
+
+### Start Small
+Pick one repo. Add a `devcontainer.json`. Let the team experience the difference. Don't try to containerize everything at once.
+
+### Win Over the Skeptics
+The engineers who resist dev containers are usually the ones with perfectly tuned local setups. Show them the onboarding benefit: new team members go from clone to productive in under 5 minutes.
+
+### Build for Your Stack
+Generic images are a starting point, not a destination. Invest time in tailoring your container with the exact linters, formatters, CLI tools, and extensions your team uses daily.
+
+### Document the Undocumented
+If someone had to run a weird script, set an obscure environment variable, or install a system library — put it in the dev container. The goal is zero tribal knowledge for environment setup.
+
+### Optimize Ruthlessly
+Slow containers don't get used. Profile your startup time. Use volume mounts for heavy dependencies. Extract hooks to scripts. Cache everything that can be cached.
+
+## Best Practices Checklist
+
+- [ ] Use a specific base image version, not `latest`
+- [ ] Run as non-root user (`remoteUser`)
+- [ ] Configure `postCreateCommand` for one-time setup
+- [ ] Configure `postStartCommand` for recurring tasks
+- [ ] Use volume mounts for large dependencies (Python packages, models)
+- [ ] Extract complex hooks to shell scripts
+- [ ] Set port attributes with labels for forwarded ports
+- [ ] Pin feature versions for reproducibility
+- [ ] Include IDE extensions and settings in `customizations`
+- [ ] Mount repository root to enable Git operations
+- [ ] Use `containerEnv` for tool-specific paths (Ollama, etc.)
+- [ ] Test the container from a clean state periodically
+
+## What Happened Next
+
+Sara onboarded three new engineers last quarter. None of them opened a setup guide. They cloned, reopened in container, and were running builds within five minutes. Sara told me: *"I don't even remember what the old onboarding doc said. Nobody's looked at it since."*
+
+Lihi's Monday mornings are now two seconds long. She's been iterating on Generative AI models faster than ever, and she recently contributed her container config back to another team who was struggling with the same GPU-heavy workflow. The container she once called *"a broken Docker thing I can't debug"* is now the first thing she recommends to new data scientists.
+
+These aren't dramatic stories. Nobody won an award. But dozens of hours of lost productivity, every week, simply vanished. That's what good infrastructure does — it disappears.
+
+## Try It Yourself
+
+The full course — with step-by-step challenges for Sara's .NET workflow, Lihi's AI playground, and strategic team adoption — is open source:
+
+**[github.com/amih90/mastering-dev-containers](https://github.com/amih90/mastering-dev-containers)**
+
+Clone it, open it in a dev container (yes, the course itself uses one), and work through the workshops at your own pace.
+
+```
+> DEV_CONTAINER_SESSION: COMPLETE
+> ENGINEERS_UNBLOCKED: 2
+> SETUP_TIME: 2s
+> ONBOARDING_DOCS_OBSOLETED: 1
+> STATUS: SHIPPING
+```
